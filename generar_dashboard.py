@@ -16,10 +16,23 @@ SRC = f'{DOWNLOADS}/20260819_Analisis Ranking.xlsx'
 OUTPUT = f'{BASE}/dashboard_ejecutivo.html'
 
 # ============ 1. VENTAS LINEA A LINEA ============
-print("Leyendo ventas 2026...")
+print("Leyendo ventas 2026 (ENE-AGO)...")
 ventas = pd.read_excel(SRC, sheet_name='pyexcel sheet 1ENE a 18AGO 2026')
 cc_v = next(c for c in ventas.columns if c.startswith('C') and 'digo' in c)
 fc = 'Subtotal'
+
+# Archivo semanal extra (18-23 ago) - evitar duplicar el dia 18
+SEM = f'{DOWNLOADS}/retail_transactions_part_1 (8)/Productos vendidos , 18 al 23 agosto 2026.xlsx'
+if os.path.exists(SEM):
+    print("Leyendo ventas semana extra (19-23 ago)...")
+    wv = pd.read_excel(SEM)
+    wv['Fecha'] = pd.to_datetime(wv['Fecha'])
+    wv_extra = wv[wv['Fecha'] > '2026-08-18']  # solo 19-23, el 18 ya esta en principal
+    ventas = pd.concat([ventas, wv_extra], ignore_index=True)
+    print(f"  Anadidas {len(wv_extra):,} filas nuevas")
+else:
+    print("WARN: no se encontro archivo semanal extra")
+
 sales = ventas[ventas['Operaci\u00f3n'] == 'Venta'].copy()
 returns = ventas[ventas['Operaci\u00f3n'] == 'Devoluci\u00f3n'].copy()
 sales['Tienda'] = sales['Tienda'].replace({'Estafeta':'Pamplona'})
@@ -30,13 +43,12 @@ sales['Mes'] = sales['Fecha'].dt.month
 returns['Fecha'] = pd.to_datetime(returns['Fecha'])
 returns['Mes'] = returns['Fecha'].dt.month
 
-# Periodo = agosto (resto del anio = acumulado hasta julio)
+# Periodo = mes en curso (agosto); resto = acumulado 2026
 mes_act = 8
-sales_act = sales[sales['Mes'] == mes_act]
 sales_year = sales[sales['Mes'] <= mes_act]
+sales_act = sales[sales['Mes'] == mes_act]  # mes en curso (1-23 ago)
 
-# Escalar agosto (estamos a 18/08) para estimacion fin de mes
-dias_agosto = sales_act['Fecha'].dt.day.max() if len(sales_act) > 0 else 18
+dias_agosto = sales_act['Fecha'].dt.day.max() if len(sales_act) > 0 else 23
 
 print(f"Ventas ano: {len(sales_year)}, unidades {sales_year['Unidades'].sum():,.0f}")
 print(f"Ventas agosto (1-{dias_agosto}): {len(sales_act)}, unidades {sales_act['Unidades'].sum():,.0f}")
@@ -226,7 +238,7 @@ for t in sales_year['Tienda'].unique():
     store_detail[t] = {
         'u': int(sd['Unidades'].sum()), 'i': round(float(sd[fc].sum()),2),
         't': int(sd['Pedido'].nunique()), 'tm': round(float(sd[fc].mean()),2),
-        'u_mes': int(sd_mes['Unidades'].sum()), 'i_mes': round(float(sd_mes[fc].sum()),2),
+        'u_mes': int(sd_mes['Unidades'].sum()), 'i_mes': round(float(sd_mes[fc].sum()),2), 's_mes': len(sd_mes),
         'top_u': json.loads(sd_u.to_json(orient='records')),
         'top_i': json.loads(sd_i.to_json(orient='records')),
         'top_mes': json.loads(sd_mu.to_json(orient='records')),
@@ -238,7 +250,7 @@ for t in sales_year['Tienda'].unique():
 # ============ 10. D ============
 D = {
     'act': datetime.now().strftime('%d/%m/%Y %H:%M'),
-    'periodo': f'1-{dias_agosto} Agosto 2026',
+    'periodo': 'Agosto 2026 (1-23)',
     'K': K,
     'sr_year': json.loads(sr_year.to_json(orient='records')),
     'sr_mes': json.loads(sr_mes.to_json(orient='records')),
@@ -333,8 +345,8 @@ var h='';
 h+='<div class="header"><div><h1>KUKU<span>XUMUSU</span></h1><div class="sub">Dashboard 2026 &bull; '+D.act+' &bull; 1 Ene - 18 Ago &bull; <strong style="color:#fbbf24">Cifras SIN IVA</strong></div></div><div class="hdr-actions"><button onclick="window.print()">Imprimir</button><button onclick="location.reload()">Actualizar</button></div></div>';
 h+='<div class="kpi-grid">';
 var K=D.K;
-[{l:'Fact. 2026',v:eur(K.fact_ano),s:fmt(K.unid_ano)+' unids / '+fmt(K.tickets_ano)+' tickets'},{l:'Agosto ('+K.dias_mes+'d)',v:eur(K.fact_mes),s:fmt(K.unid_mes)+' unids / '+fmt(K.tickets_mes)+' tk'},
-{l:'Proyeccion Ago',v:eur(K.fact_mes/K.dias_mes*31),s:'a 31 dias'},{l:'Tiendas',v:D.num_tiendas,s:'activas'},{l:'Devoluciones',v:fmt(K.dev_unid)+' u',s:eur(K.dev_importe)+' importe'},{l:'Prods.Vendidos',v:fmt(K.prods_vendidos),s:'en 2026'},{l:'Ticket Medio',v:eur(K.fact_ano/K.tickets_ano),s:'2026'}]
+[{l:'Fact. 2026',v:eur(K.fact_ano),s:fmt(K.unid_ano)+' unids / '+fmt(K.tickets_ano)+' tickets'},{l:'Mes en Curso',v:eur(K.fact_mes),s:'Agosto (1-'+K.dias_mes+') '+fmt(K.unid_mes)+' unids'},
+{l:'Media/Dia Ago',v:eur(K.fact_mes/K.dias_mes),s:'sobre '+K.dias_mes+' dias'},{l:'Tiendas',v:D.num_tiendas,s:'activas'},{l:'Devoluciones',v:fmt(K.dev_unid)+' u',s:eur(K.dev_importe)+' importe'},{l:'Prods.Vendidos',v:fmt(K.prods_vendidos),s:'en 2026'},{l:'Ticket Medio',v:eur(K.fact_ano/K.tickets_ano),s:'2026'}]
 .forEach(function(k){h+='<div class="kpi"><div class="l">'+k.l+'</div><div class="v">'+k.v+'</div><div class="s">'+k.s+'</div></div>'});h+='</div>';
 
 // ===== ACUMULADO 2026 =====
@@ -344,8 +356,8 @@ h+='<div class="sc" style="border-top:3px solid '+cols[i]+'" onclick="openModal(
 '<div class="dg"><div class="it"><div class="lb">Ingresos</div><div class="vl" style="color:#2563eb">'+eur(s.I)+'</div></div><div class="it"><div class="lb">Unidades</div><div class="vl" style="color:#16a34a">'+fmt(s.U)+'</div></div></div>'+
 '<div class="ft">Tickets: '+fmt(s.T)+' | TM: '+eur(s.TM)+' | Dev: '+fmt(Math.abs(s.RU))+'</div></div>';}h+='</div>';
 
-// ===== AGOSTO =====
-h+='<h2 class="sec"><span>Tiendas &bull; Agosto</span><span class="tag">1-18 Ago 2026</span></h2><div class="sg">';
+// ===== MES EN CURSO =====
+h+='<h2 class="sec"><span>Tiendas &bull; Mes en Curso</span><span class="tag">Agosto 2026 (1-23)</span></h2><div class="sg">';
 for(var i=0;i<D.sr_mes.length;i++){var s=D.sr_mes[i];var p=(s.I/D.sr_mes[0].I*100).toFixed(1);
 h+='<div class="sc" style="border-top:3px solid '+cols[i]+'" onclick="openModal(\''+s.Tienda+'\')"><h4><span>'+(i+1)+'. '+s.Tienda+'</span><span style="font-size:8px;color:'+cols[i]+'">'+p+'%</span></h4>'+
 '<div class="dg"><div class="it"><div class="lb">Ingresos</div><div class="vl" style="color:#2563eb">'+eur(s.I)+'</div></div><div class="it"><div class="lb">Unidades</div><div class="vl" style="color:#16a34a">'+fmt(s.U)+'</div></div></div>'+
