@@ -4,40 +4,45 @@ cd /d "%~dp0"
 cls
 echo.
 echo  =============================================
-echo      KUKUXUMUSU - SISTEMA DE DASHBOARD
+echo      KUKUXUMUSU - Dashboard Ejecutivo
 echo  =============================================
 echo.
-echo  1. Generar dashboard (datos estaticos)
-echo  2. Iniciar servidor web local (auto-refresh)
-echo  3. Abrir carpeta de datos
+echo  1. Generar dashboard (datos locales)
+echo  2. Iniciar servidor web local
+echo  3. Publicar en GitHub (commit + push)
+echo  4. Abrir carpeta
 echo.
-choice /c 123 /n /m "Selecciona opcion (1/2/3): "
+choice /c 1234 /n /m "Selecciona opcion (1/2/3/4): "
 echo.
 
-if errorlevel 3 goto carpeta
+if errorlevel 4 goto carpeta
+if errorlevel 3 goto github
 if errorlevel 2 goto servidor
 if errorlevel 1 goto generar
 
 :generar
-echo Generando dashboard con datos actualizados...
-python3 "C:\Users\hiato\Downloads\generar_dashboard_v3.py"
+echo Generando dashboard...
+python3 "generar_dashboard.py"
 if %errorlevel% equ 0 (
-    echo.
-    echo Dashboard generado correctamente.
+    echo Dashboard generado.
     start "" "dashboard_ejecutivo.html"
-) else (
-    echo ERROR al generar el dashboard.
-    pause
-)
+) else ( echo ERROR & pause )
 goto fin
 
 :servidor
-echo Iniciando servidor web en http://localhost:8080
-echo Abre el navegador y ve a esa direccion.
-echo Pulsa Ctrl+C en la ventana para detenerlo.
-echo.
+echo Iniciando servidor en http://localhost:8080
 start http://localhost:8080
 python3 "C:\Users\hiato\Downloads\servidor_dashboard.py"
+pause
+goto fin
+
+:github
+echo Haciendo commit y push a GitHub...
+set PATH=%PATH%;C:\Program Files\Git\bin
+git add -A
+git commit -m "Actualizacion dashboard %date% %time%"
+git push
+if %errorlevel% equ 0 ( echo Publicado correctamente ) else ( echo ERROR: Configura GitHub primero )
 pause
 goto fin
 
@@ -47,5 +52,3 @@ goto fin
 
 :fin
 echo.
-echo Listo.
-timeout /t 3 >nul
