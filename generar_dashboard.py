@@ -33,6 +33,20 @@ if os.path.exists(SEM):
 else:
     print("WARN: no se encontro archivo semanal extra")
 
+# Archivo semana 24-30 ago
+SEM2 = f'{DOWNLOADS}/retail_transactions_part_1 (7)/Ventas del 24 al 30 agosto.xlsx'
+if os.path.exists(SEM2):
+    print("Leyendo ventas 24-30 ago...")
+    wv2 = pd.read_excel(SEM2)
+    wv2['Fecha'] = pd.to_datetime(wv2['Fecha'])
+    wv2_extra = wv2[wv2['Fecha'] > '2026-08-23']  # solo 24-30
+    # Seleccionar solo columnas comunes para concat
+    common = [c for c in ventas.columns if c in wv2_extra.columns]
+    ventas = pd.concat([ventas, wv2_extra[common]], ignore_index=True)
+    print(f"  Anadidas {len(wv2_extra):,} filas nuevas (24-30 ago)")
+else:
+    print("WARN: no se encontro archivo 24-30 ago")
+
 sales = ventas[ventas['Operaci\u00f3n'] == 'Venta'].copy()
 returns = ventas[ventas['Operaci\u00f3n'] == 'Devoluci\u00f3n'].copy()
 sales['Tienda'] = sales['Tienda'].replace({'Estafeta':'Pamplona'})
@@ -46,7 +60,7 @@ returns['Mes'] = returns['Fecha'].dt.month
 # Periodo = mes en curso (agosto); resto = acumulado 2026
 mes_act = 8
 sales_year = sales[sales['Mes'] <= mes_act]
-sales_act = sales[sales['Mes'] == mes_act]  # mes en curso (1-23 ago)
+sales_act = sales[sales['Mes'] == mes_act]  # mes en curso (1-30 ago)
 
 dias_agosto = sales_act['Fecha'].dt.day.max() if len(sales_act) > 0 else 23
 
@@ -250,7 +264,7 @@ for t in sales_year['Tienda'].unique():
 # ============ 10. D ============
 D = {
     'act': datetime.now().strftime('%d/%m/%Y %H:%M'),
-    'periodo': 'Agosto 2026 (1-23)',
+    'periodo': 'Agosto 2026 (1-30)',
     'K': K,
     'sr_year': json.loads(sr_year.to_json(orient='records')),
     'sr_mes': json.loads(sr_mes.to_json(orient='records')),
@@ -357,7 +371,7 @@ h+='<div class="sc" style="border-top:3px solid '+cols[i]+'" onclick="openModal(
 '<div class="ft">Tickets: '+fmt(s.T)+' | TM: '+eur(s.TM)+' | Dev: '+fmt(Math.abs(s.RU))+'</div></div>';}h+='</div>';
 
 // ===== MES EN CURSO =====
-h+='<h2 class="sec"><span>Tiendas &bull; Mes en Curso</span><span class="tag">Agosto 2026 (1-23)</span></h2><div class="sg">';
+h+='<h2 class="sec"><span>Tiendas &bull; Mes en Curso</span><span class="tag">Agosto 2026 (1-30)</span></h2><div class="sg">';
 for(var i=0;i<D.sr_mes.length;i++){var s=D.sr_mes[i];var p=(s.I/D.sr_mes[0].I*100).toFixed(1);
 h+='<div class="sc" style="border-top:3px solid '+cols[i]+'" onclick="openModal(\''+s.Tienda+'\')"><h4><span>'+(i+1)+'. '+s.Tienda+'</span><span style="font-size:8px;color:'+cols[i]+'">'+p+'%</span></h4>'+
 '<div class="dg"><div class="it"><div class="lb">Ingresos</div><div class="vl" style="color:#2563eb">'+eur(s.I)+'</div></div><div class="it"><div class="lb">Unidades</div><div class="vl" style="color:#16a34a">'+fmt(s.U)+'</div></div></div>'+
